@@ -6,7 +6,7 @@ using UnityEngine;
 [assembly: MelonInfo(typeof(FeeningNPCs.FeeningNPCs), FeeningNPCs.BuildInfo.Name, FeeningNPCs.BuildInfo.Version, FeeningNPCs.BuildInfo.Author, FeeningNPCs.BuildInfo.DownloadLink)]
 [assembly: MelonColor()]
 [assembly: MelonOptionalDependencies("FishNet.Runtime")]
-[assembly: MelonGame(null, null)]
+[assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace FeeningNPCs
 {
@@ -34,8 +34,7 @@ namespace FeeningNPCs
         {
             if (buildIndex == 1)
             {
-                if (this.cmers == null || this.cmers.Length == 0)
-                    this.cmers = UnityEngine.Object.FindObjectsOfType<Customer>(true);
+                this.cmers = UnityEngine.Object.FindObjectsOfType<Customer>(true);
 
                 coros.Add(MelonCoroutines.Start(this.ChangeBehv()));
                 coros.Add(MelonCoroutines.Start(this.ClearFeens()));
@@ -47,6 +46,7 @@ namespace FeeningNPCs
                     MelonCoroutines.Stop(coro);
                 }
                 coros.Clear();
+                feens.Clear();
             }
         }
 
@@ -55,6 +55,7 @@ namespace FeeningNPCs
             for (; ; )
             {
                 yield return new WaitForSeconds(1440f);
+                // MelonLogger.Msg("Clear Feens");
                 foreach (var feen in feens)
                 {
                     Customer customer = feen.Key;
@@ -71,6 +72,7 @@ namespace FeeningNPCs
             for (; ; )
             {
                 yield return new WaitForSeconds(UnityEngine.Random.Range(60f, 180f));
+                // MelonLogger.Msg("Evaluate Nearby Feens");
                 Player[] players = UnityEngine.Object.FindObjectsOfType<Player>(true);
                 Player randomPlayer = players[UnityEngine.Random.Range(0, players.Length)];
                 List<Customer> nearbyCustomers = new();
@@ -89,6 +91,7 @@ namespace FeeningNPCs
 
                 if (nearbyCustomers.Count > 0)
                 {
+                    // MelonLogger.Msg($"Nearby Feening: {nearbyCustomers.Count}");
                     MelonCoroutines.Start(this.SetFeening(nearbyCustomers, randomPlayer));
                 }
 
