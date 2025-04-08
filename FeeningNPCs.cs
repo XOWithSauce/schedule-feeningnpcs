@@ -1,8 +1,9 @@
-﻿using MelonLoader;
+using MelonLoader;
 using System.Collections;
 using ScheduleOne.PlayerScripts;
 using ScheduleOne.Economy;
 using UnityEngine;
+using ScheduleOne.Persistence;
 [assembly: MelonInfo(typeof(FeeningNPCs.FeeningNPCs), FeeningNPCs.BuildInfo.Name, FeeningNPCs.BuildInfo.Version, FeeningNPCs.BuildInfo.Author, FeeningNPCs.BuildInfo.DownloadLink)]
 [assembly: MelonColor()]
 [assembly: MelonOptionalDependencies("FishNet.Runtime")]
@@ -16,7 +17,7 @@ namespace FeeningNPCs
         public const string Description = "Your customers need more... and more.... AND MORE!!! HELP ME BRO YOU GOT SOME MORE??!!";
         public const string Author = "XOWithSauce";
         public const string Company = null;
-        public const string Version = "1.0";
+        public const string Version = "1.1";
         public const string DownloadLink = null;
     }
     public class FeeningNPCs : MelonMod
@@ -24,7 +25,7 @@ namespace FeeningNPCs
         Customer[] cmers;
         List<object> coros = new();
         Dictionary<Customer, float> feens = new();
-
+        private bool registered = false;
         public override void OnApplicationStart()
         {
             MelonLogger.Msg("Your customers need more... and more.... AND MORE!!! HELP ME BRO YOU GOT SOME MORE??!!");
@@ -34,10 +35,12 @@ namespace FeeningNPCs
         {
             if (buildIndex == 1)
             {
-                this.cmers = UnityEngine.Object.FindObjectsOfType<Customer>(true);
-
-                coros.Add(MelonCoroutines.Start(this.ChangeBehv()));
-                coros.Add(MelonCoroutines.Start(this.ClearFeens()));
+                if (LoadManager.Instance != null && !registered)
+                {
+                    LoadManager.Instance.onLoadComplete.AddListener(OnLoadCompleteCb);
+                    registered = true;
+                }
+                
             }
             else
             {
@@ -50,6 +53,13 @@ namespace FeeningNPCs
             }
         }
 
+        private void OnLoadCompleteCb()
+        {
+            this.cmers = UnityEngine.Object.FindObjectsOfType<Customer>(true);
+
+            coros.Add(MelonCoroutines.Start(this.ChangeBehv()));
+            coros.Add(MelonCoroutines.Start(this.ClearFeens()));
+        }
         private IEnumerator ClearFeens()
         {
             for (; ; )
@@ -72,8 +82,9 @@ namespace FeeningNPCs
             for (; ; )
             {
                 yield return new WaitForSeconds(UnityEngine.Random.Range(60f, 180f));
-                // MelonLogger.Msg("Evaluate Nearby Feens");
+                MelonLogger.Msg("Evaluate Nearby Feens");
                 Player[] players = UnityEngine.Object.FindObjectsOfType<Player>(true);
+                if (players.Length == 0) { continue; }
                 Player randomPlayer = players[UnityEngine.Random.Range(0, players.Length)];
                 List<Customer> nearbyCustomers = new();
 
@@ -91,7 +102,7 @@ namespace FeeningNPCs
 
                 if (nearbyCustomers.Count > 0)
                 {
-                    // MelonLogger.Msg($"Nearby Feening: {nearbyCustomers.Count}");
+                    MelonLogger.Msg($"Nearby Feening: {nearbyCustomers.Count}");
                     MelonCoroutines.Start(this.SetFeening(nearbyCustomers, randomPlayer));
                 }
 
@@ -112,6 +123,7 @@ namespace FeeningNPCs
                 c.NPC.OverrideAggression(1f);
                 c.RequestProduct(randomPlayer);
                 feens.Add(c, origAggr);
+                MelonLogger.Msg("NearbyFeeningDone");
             }
 
             yield return null;
