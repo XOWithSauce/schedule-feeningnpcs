@@ -9,9 +9,9 @@
 
 ### Installation Steps:
 
-- Install Melon Loader from a Trusted Source like https://melonwiki.xyz/
-- Manually download the correct .zip file and then unzip the file.
-- Copy the DLL file and FeeningNPCs folder (with config.json) into the Mods folder and you are good to go
+1. Install Melon Loader from a trusted source like [MelonWiki](https://melonwiki.xyz/).
+2. Copy the DLL file and the `FeeningNPCs` folder (with `config.json`) into the `Mods` folder.
+3. You are good to go!
 
 ### Optional Configuration Steps:
 
