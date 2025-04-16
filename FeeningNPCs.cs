@@ -21,7 +21,7 @@ namespace FeeningNPCs
         public const string Description = "Your customers need more... and more.... AND MORE!!! HELP ME BRO YOU GOT SOME MORE??!!";
         public const string Author = "XOWithSauce";
         public const string Company = null;
-        public const string Version = "1.2";
+        public const string Version = "1.2.2";
         public const string DownloadLink = null;
     }
 
@@ -32,9 +32,11 @@ namespace FeeningNPCs
         public int maxFeensStack = 3; // How many feens can be selected at once to request
         public int feeningTreshold = 50; // minimum time app has to wait for new feens event
         public int feensClearThreshold = 1440; // how often recent feens are cleared
-        public int feeningRadius = 10; // max distance away from player
-        public bool randomEffects = true; // when true rolls miscellanious actions and property changes
+        public int feeningRadius = 30; // max distance away from player
+        public bool randomEffects = true; // when true rolls miscellanious actions
+        public bool increaseEconomy = true; // when true adds more spending habits
     }
+
 
     public static class ConfigLoader
     {
@@ -82,9 +84,9 @@ namespace FeeningNPCs
     public class FeeningNPCs : MelonMod
     {
         Customer[] cmers;
-        List<object> coros = new();
-        List<Customer> feens = new();
-        private bool registered = false;
+        public static List<object> coros = new();
+        HashSet<Customer> feens = new();
+        public static bool registered = false;
         private ModConfig currentConfig;
 
         public override void OnApplicationStart()
@@ -130,191 +132,233 @@ namespace FeeningNPCs
 
         private IEnumerator ClearFeens()
         {
+            yield return new WaitForSeconds(1f);
             for (; ; )
             {
                 yield return new WaitForSeconds(currentConfig.feensClearThreshold);
-                // MelonLogger.Msg("Clear Feens");
+                if (!registered) yield break;
+                //MelonLogger.Msg("Clear Feens");
                 feens.Clear();
             }
         }
-        private IEnumerator RandomFeenEffect(Customer c)
+
+        #region Random effect coros
+        public static IEnumerator ChangeCustomerEconomy(Customer c)
+        {
+            int roll = UnityEngine.Random.Range(0, 4);
+            switch (roll)
+            {
+                // Orders count
+                case 0: // Increase MinOrdersPerWeek by 1
+                    {
+                        int baseMax = 12;
+                        int current = c.CustomerData.MinOrdersPerWeek;
+                        if (c.CustomerData.MinOrdersPerWeek >= baseMax) break;
+                        c.CustomerData.MinOrdersPerWeek = Mathf.Max(baseMax, current + 1);
+                        //MelonLogger.Msg("MinOrdersPerWeek: " + c.CustomerData.MinOrdersPerWeek);
+                        break;
+                    }
+
+                case 1: // Increase MaxOrdersPerWeek by 1
+                    {
+                        int baseMax = 24;
+                        int current = c.CustomerData.MaxOrdersPerWeek;
+                        if (c.CustomerData.MaxOrdersPerWeek >= baseMax) break;
+                        c.CustomerData.MaxOrdersPerWeek = Mathf.Max(baseMax, current + 1);
+                        //MelonLogger.Msg("MaxOrdersPerWeek: " + c.CustomerData.MaxOrdersPerWeek);
+                        break;
+                    }
+
+                // Spending habits
+                case 2: // Increase MaxWeeklySpend by 1% - cap 30k
+                    {
+                        float baseMax = 30000f;
+                        if (c.CustomerData.MaxWeeklySpend >= baseMax) break;
+                        c.CustomerData.MaxWeeklySpend = Mathf.Max(baseMax, c.CustomerData.MaxWeeklySpend * 1.01f);
+                        //MelonLogger.Msg("MaxWeeklySpend: " + c.CustomerData.MaxWeeklySpend);
+                        break;
+                    }
+
+
+                case 3: // Increase MinWeeklySpend by 1% - cap 10k
+                    {
+                        float baseMax = 10000f;
+                        if (c.CustomerData.MinWeeklySpend >= baseMax) break;
+                        c.CustomerData.MinWeeklySpend = Mathf.Max(baseMax, c.CustomerData.MinWeeklySpend * 1.01f);
+                        //MelonLogger.Msg("MinWeeklySpend: " + c.CustomerData.MinWeeklySpend);
+                        break;
+                    }
+
+
+            }
+            yield return null;
+        }
+        public static IEnumerator RandomFeenEffect(Customer c)
         {
             int roll = UnityEngine.Random.Range(0, 14);
             switch (roll)
             {
                 case 0:
+                    //MelonLogger.Msg("Aggr");
                     c.NPC.OverrideAggression(1f);
-                    try
-                    {
-                        GameObject newObj = GameObject.Instantiate(UnityEngine.Object.FindObjectOfType<AvatarMeleeWeapon>().gameObject, c.transform);
-                        if (newObj == null) break;
-
-                        if (!newObj.activeInHierarchy)
-                            newObj.SetActive(true);
-
-                        c.NPC.behaviour.CombatBehaviour.DefaultWeapon = newObj.GetComponent<AvatarMeleeWeapon>();
-                        c.NPC.SetEquippable_Networked(null, c.NPC.behaviour.CombatBehaviour.DefaultWeapon.AssetPath);
-                        //MelonLogger.Msg("NPC Wielding: " + c.NPC.behaviour.CombatBehaviour.DefaultWeapon.AssetPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        MelonLogger.Msg(ex);
-                    }
                     break;
 
                 case 1:
-                    c.CustomerData.MinOrdersPerWeek = 4;
-                    //MelonLogger.Msg("MinOrdersPerWeek:" + c.CustomerData.MinOrdersPerWeek);
-                    break;
-
-                case 2:
-                    c.CustomerData.MaxWeeklySpend = 10000f;
-                    //MelonLogger.Msg("MaxWeeklySpend:" + c.CustomerData.MaxWeeklySpend);
-                    break;
-
-                case 3:
-                    c.CustomerData.MaxOrdersPerWeek = 30;
-                    //MelonLogger.Msg("MaxOrdersPerWeek:" + c.CustomerData.MaxOrdersPerWeek);
-                    break;
-
-                case 4:
                     c.CustomerData.CallPoliceChance = 1f;
                     //MelonLogger.Msg("CallPoliceChance:" + c.CustomerData.CallPoliceChance);
                     break;
 
-                case 5:
-                    c.CustomerData.MinWeeklySpend = 3000f;
-                    //MelonLogger.Msg("MinWeeklySpend:" + c.CustomerData.MinWeeklySpend);
-                    break;
-
-                case 6:
+                case 2:
                     c.CustomerData.CallPoliceChance = 0.5f;
                     //MelonLogger.Msg("CallPoliceChance:" + c.CustomerData.CallPoliceChance);
                     break;
 
-                case 7:
+                case 3:
                     c.NPC.PlayVO(EVOLineType.VeryHurt);
                     c.NPC.Avatar.EmotionManager.AddEmotionOverride("Annoyed", "product_request_fail", 30f, 1);
                     //MelonLogger.Msg("Emotion");
                     break;
 
-                case 8:
+                case 4:
                     c.NPC.OverrideAggression(0.5f);
                     //MelonLogger.Msg("OverrideAggr:" + c.NPC.Aggression);
                     break;
 
-                case 9:
-                    c.CustomerData.MaxWeeklySpend = 3000f;
-                    //MelonLogger.Msg("MaxWeeklySpend:" + c.CustomerData.MaxWeeklySpend);
-                    break;
-
-                case 10:
-                    c.CustomerData.MinWeeklySpend = 500f;
-                    //MelonLogger.Msg("MinWeeklySpend:" + c.CustomerData.MinWeeklySpend);
-                    break;
-
-                case 11:
-                    c.NPC.Avatar.Effects.SetSicklySkinColor(true);
+                case 5:
                     //MelonLogger.Msg("SicklySkin");
+                    c.NPC.Avatar.Effects.SetSicklySkinColor(true);
                     break;
 
-                case 12:
-                    try
-                    {
-                        GameObject newObj = GameObject.Instantiate(UnityEngine.Object.FindObjectOfType<AvatarMeleeWeapon>().gameObject, c.transform);
-                        if (newObj == null) break;
-
-                        if (!newObj.activeInHierarchy)
-                            newObj.SetActive(true);
-
-                        c.NPC.behaviour.CombatBehaviour.DefaultWeapon = newObj.GetComponent<AvatarMeleeWeapon>();
-                        c.NPC.SetEquippable_Networked(null, c.NPC.behaviour.CombatBehaviour.DefaultWeapon.AssetPath);
-                        //MelonLogger.Msg("NPC Wielding: " + c.NPC.behaviour.CombatBehaviour.DefaultWeapon.AssetPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        MelonLogger.Msg(ex);
-                    }
-                    yield return new WaitForSeconds(1f);
-                    Player.GetClosestPlayer(c.transform.position, out float num1);
-                    int maxIter = 20;
-                    int i = 0;
-                    while (num1 > 10)
-                    {
-                        if (i == maxIter) break;
-                        yield return new WaitForSeconds(1f);
-                        Player.GetClosestPlayer(c.transform.position, out num1);
-                        i++;
-                    }
-                    float num2;
-                    c.NPC.behaviour.CombatBehaviour.SetTarget(null, Player.GetClosestPlayer(c.transform.position, out num2, null).NetworkObject);
-                    
-                    c.NPC.behaviour.CombatBehaviour.Enable_Networked(null);
+                case 6:
+                    coros.Add(MelonCoroutines.Start(NPCAttackEffect(c)));
                     break;
 
-                case 13:
-                    yield return new WaitForSeconds(1f);
-                    Player.GetClosestPlayer(c.transform.position, out float num3);
-                    int maxIter2 = 10;
-                    int j = 0;
-                    while (num3 > 10)
-                    {
-                        if (j == maxIter2) break;
-                        yield return new WaitForSeconds(1f);
-                        Player.GetClosestPlayer(c.transform.position, out num1);
-                        j++;
-                    }
-                    c.NPC.Movement.ActivateRagdoll(c.NPC.transform.position, Vector3.forward, 3f);
+                case 7:
+                    coros.Add(MelonCoroutines.Start(RagdollEffect(c)));
                     break;
             }
 
             yield return null;
         }
 
-        private IEnumerator ChangeBehv()
+        private static IEnumerator NPCAttackEffect(Customer c)
         {
-            for (; ; )
+            //MelonLogger.Msg("NPC attack effect");
+            yield return new WaitForSeconds(1f);
+            if (!registered || c.NPC.RelationData.RelationDelta > 3.8f) yield break;
+
+            Player.GetClosestPlayer(c.transform.position, out float num1);
+            int maxIter = 20;
+            int i = 0;
+            while (num1 > 6f)
             {
-                yield return new WaitForSeconds(1f);
-                yield return new WaitForSeconds(UnityEngine.Random.Range(currentConfig.feeningTreshold, currentConfig.feeningTreshold*2));
-                //MelonLogger.Msg("Evaluate Nearby Feens");
-                Player[] players = UnityEngine.Object.FindObjectsOfType<Player>(true);
-                if (players.Length == 0) { continue; }
-                Player randomPlayer = players[UnityEngine.Random.Range(0, players.Length)];
-                List<Customer> nearbyCustomers = new();
+                if (i == maxIter) break;
+                yield return new WaitForSeconds(0.5f);
+                if (!registered) yield break;
 
-                foreach (Customer c in cmers)
-                {
-                    float dist = Vector3.Distance(c.NPC.transform.position, randomPlayer.transform.position);
-                    string currentBehavior = c.NPC.behaviour.activeBehaviour.ToString();
-                    if (dist < currentConfig.feeningRadius && !currentBehavior.Contains("Request product from player") && !feens.Contains(c) && c.NPC.RelationData.Unlocked)
-                    {
-                        nearbyCustomers.Add(c);
-                        if (nearbyCustomers.Count == currentConfig.maxFeensStack)
-                            break;
-                    }
-                }
+                Player.GetClosestPlayer(c.transform.position, out num1);
+                i++;
+            }
+            yield return new WaitForSeconds(0.5f);
+            if (!registered) yield break;
 
-                if (nearbyCustomers.Count > 0)
-                {
-                    //MelonLogger.Msg($"Nearby Feening: {nearbyCustomers.Count}");
-                    MelonCoroutines.Start(this.SetFeening(nearbyCustomers, randomPlayer));
-                }
-
+            Player closest = Player.GetClosestPlayer(c.transform.position, out float dist, null);
+            if (dist < 6f && closest != null && closest.NetworkObject != null)
+            {
+                c.NPC.behaviour.CombatBehaviour.SetTarget(null, closest.NetworkObject);
+                c.NPC.behaviour.CombatBehaviour.SendEnable();
             }
         }
+        private static IEnumerator RagdollEffect(Customer c)
+        {
+            //MelonLogger.Msg("Ragdoll");
+            yield return new WaitForSeconds(1f);
+            if (!registered) yield break;
 
+            Player.GetClosestPlayer(c.transform.position, out float num3);
+            int maxIter2 = 20;
+            int j = 0;
+            while (num3 > 6f)
+            {
+                if (j == maxIter2) break;
+                yield return new WaitForSeconds(0.5f);
+                if (!registered) yield break;
+
+                Player.GetClosestPlayer(c.transform.position, out num3);
+                j++;
+            }
+            yield return new WaitForSeconds(0.5f);
+            if (!registered) yield break;
+
+            Player.GetClosestPlayer(c.transform.position, out float dist, null);
+            if (dist < 6f)
+                c.NPC.Movement.ActivateRagdoll(c.NPC.transform.position, Vector3.forward, 6f);
+        }
+        #endregion
+        private IEnumerator ChangeBehv()
+        {
+            yield return new WaitForSeconds(1f);
+
+            for (; ; )
+            {
+                yield return new WaitForSeconds(UnityEngine.Random.Range(currentConfig.feeningTreshold, currentConfig.feeningTreshold * 2));
+                if (!registered) yield break;
+                try
+                {
+                    //MelonLogger.Msg("Evaluate Nearby Feens");
+                    Player[] players = UnityEngine.Object.FindObjectsOfType<Player>(true);
+                    if (players.Length == 0) { continue; }
+                    Player randomPlayer = players[UnityEngine.Random.Range(0, players.Length)];
+                    List<Customer> nearbyCustomers = new();
+
+                    foreach (Customer c in cmers)
+                    {
+                        float dist = Vector3.Distance(c.NPC.transform.position, randomPlayer.transform.position);
+                        string currentBehavior = "";
+                        if (c.NPC.behaviour.activeBehaviour != null)
+                            currentBehavior = c.NPC.behaviour.activeBehaviour.ToString();
+
+                        if (dist < currentConfig.feeningRadius && !currentBehavior.Contains("Request product from player") && !feens.Contains(c) && c.NPC.RelationData.Unlocked && !c.NPC.Health.IsKnockedOut && !c.NPC.Health.IsDead)
+                        {
+                            nearbyCustomers.Add(c);
+                            if (nearbyCustomers.Count >= currentConfig.maxFeensStack)
+                                break;
+                        }
+                    }
+
+                    if (nearbyCustomers.Count > 0)
+                    {
+                        //MelonLogger.Msg($"Nearby Feening: {nearbyCustomers.Count}");
+                        coros.Add(MelonCoroutines.Start(this.SetFeening(nearbyCustomers, randomPlayer)));
+                    }
+
+                }
+                catch (Exception ex)
+                {
+                    MelonLogger.Error("Feening NPCs caught an error: " + ex);
+                }
+            }
+        }
         private IEnumerator SetFeening(List<Customer> cs, Player randomPlayer)
         {
             foreach (Customer c in cs)
             {
                 yield return new WaitForSeconds(2f);
+                if (!registered) yield break;
+
+                if (c.NPC.isInBuilding)
+                    c.NPC.ExitBuilding();
+                yield return new WaitForSeconds(0.5f);
                 if (!c.NPC.Movement.CanGetTo(randomPlayer.transform.position, proximityReq: currentConfig.feeningRadius))
-                {
                     continue;
-                }
-                if (currentConfig.randomEffects)
-                    MelonCoroutines.Start(RandomFeenEffect(c));
+
+                if (UnityEngine.Random.Range(0f, 1f) > 0.5f)
+                    if (currentConfig.randomEffects)
+                        coros.Add(MelonCoroutines.Start(RandomFeenEffect(c)));
+                    else
+                    if (currentConfig.increaseEconomy)
+                        coros.Add(MelonCoroutines.Start(ChangeCustomerEconomy(c)));
+
                 c.RequestProduct(randomPlayer);
                 feens.Add(c);
                 //MelonLogger.Msg("NearbyFeeningDone");
@@ -323,7 +367,6 @@ namespace FeeningNPCs
             yield return null;
         }
 
-        
-
     }
 }
+
