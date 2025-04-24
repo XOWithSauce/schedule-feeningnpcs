@@ -20,7 +20,7 @@
 ```
 {
   "maxFeensStack": 3,
-  "feeningTreshold": 50,
+  "feeningTreshold": 60,
   "feensClearThreshold": 1440,
   "feeningRadius": 30,
   "randomEffects": true,
