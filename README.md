@@ -20,38 +20,23 @@
 ```
 {
   "maxFeensStack": 3,
-  "feeningTreshold": 60,
+  "feeningTreshold": 50,
   "feensClearThreshold": 1440,
   "feeningRadius": 30,
   "randomEffects": true,
-  "increaseEconomy": true
+  "increaseEconomy": true,
+  "economyMultiplier": 10,
+  "ignoreExistingDeals": true
 }
 ```
+
 - maxFeensStack: How many nearby Customers can be selected as Feens at once
 - feeningTreshold: The minimum time application waits to select new Feens
 - feensClearThreshold: How often a Customer can become a Feen again
 - feeningRadius: Minimum distance from player that Customer must be to become a Feen
 - randomEffects: When true, rolls random events like angry noises, ragdolls, aggression changes, etc.
 - increaseEconomy: When true, slowly starts increasing customer spending behaviour to compensate for the feening.
+- economyMultiplier: value between 1-10, how fast economy increases (1 slow increase, 10 mod default increase)
+- ignoreExistingDeals: when true, customers with existing deals can also become feens
 
 Note: The config.json file will get created automatically in the Mods/FeeningNPCs/config.json directory if missing.
-
-## Changelog
-
-### Version v1.2.2
-- Removed potentially broken functions from the `randomEffects`
-- Moved all Economy and Spending related functions to be their own logic
-- Added new `increaseEconomy` config variable to allow disabling the Economy and Spending logic
-- Moved Ragdolling and potential customer attack to their own coroutines
-- Customer attacking you during feening now requires customer relation below 3.8 (game default 2.5 - max 5.0)
-- Added safety checks to avoid getting null reference exceptions
-- Increased the speed at which attacking and ragdolling coroutines evaluate
-- Fixed il2cpp json config loading to use newtonsoft assembly
-
-### Version v1.2
-- Added `config.json` support
-- Changed feening behaviour to not always apply aggression
-- Changed feening behaviour to roll from a set of random events
-
-### Version v1.1.1
-- Stability and bug fixes
